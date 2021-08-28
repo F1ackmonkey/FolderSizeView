@@ -20,16 +20,16 @@ Function Update_Ctr_ContainerControl1 {
     if (Test-Path $FolderPath){
         $Lbl_FolderPath1.text = $FolderPath
         $Ctr_ContainerControl1.Controls.Clear()
-        $Folders = Get-ChildItem -Path $FolderPath -Directory
+        $Folders = Get-ChildItem -Path $FolderPath -Directory -Attributes !ReparsePoint
         $LocationY = 0
         $labelSpacing = 0
         $FolderCollection = @()
         $Error.Clear()
         $Bar_Progress1.Value = 0
         $Bar_Progress1.maximum = $folders.count
-        $folders | foreach {
+        $folders | ForEach-Object {
             try {
-                $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction Stop |Measure-Object -Property length -Sum -ErrorAction Stop).Sum
+                $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction SilentlyContinue |Measure-Object -Property length -Sum -ErrorAction SilentlyContinue).Sum
             } catch [System.UnauthorizedAccessException] {
                 Write-Warning "$_ Try Running as an administrator"
                 $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction SilentlyContinue |Measure-Object -Property length -Sum -ErrorAction SilentlyContinue).Sum
@@ -46,8 +46,8 @@ Function Update_Ctr_ContainerControl1 {
        
         #Also Add Hidden folder
         $Bar_Progress1.Value = 0
-        $Folders = Get-ChildItem -Path $FolderPath -Directory -Hidden
-        $folders | foreach {
+        $Folders = Get-ChildItem -Path $FolderPath -Directory -Hidden -Attributes !ReparsePoint #this will exclude symlinks
+        $folders | ForEach-Object {
             try {
                 $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction Stop |Measure-Object -Property length -Sum -ErrorAction Stop).Sum
             } catch [System.UnauthorizedAccessException] {
@@ -67,6 +67,7 @@ Function Update_Ctr_ContainerControl1 {
         #Also add the files in the current directory as an entry in the collection
         $TempObj = New-Object -TypeName psobject
         $TempObj | Add-Member -MemberType NoteProperty -Name FolderName -Value "$((Get-ChildItem -File $FolderPath).count)Files in Current Directory"
+        $error.Clear()
         try {
             $TempObj | Add-Member -MemberType NoteProperty -Name Size -Value $((Get-ChildItem -File $FolderPath -ErrorAction Stop |Measure-Object -Property length -Sum -ErrorAction Stop).Sum)
         } catch [System.UnauthorizedAccessException] {
@@ -114,7 +115,7 @@ Function Update_Ctr_ContainerControl1 {
  
         $FontMin = 5
         $LocationY =0
-        $FolderCollection | foreach{
+        $FolderCollection | ForEach-Object{
             $Lbl_Temp = New-Object System.Windows.Forms.Label
             $Lbl_Temp.Text = $_.FolderName
             $Lbl_Temp.AutoSize = $true
@@ -152,7 +153,7 @@ Function Update_Ctr_ContainerControl1 {
  
         #update volume percentage
         $DriveLetter = ([System.IO.Path]::GetPathRoot($FolderPath)).replace('\','')
-        $VolumeSize = (gwmi -Class win32_volume -Filter "driveletter='$DriveLetter'").capacity
+        $VolumeSize = (Get-CimInstance -Class win32_volume -Filter "driveletter='$DriveLetter'").capacity
         $Lbl_PercentOfVolume.text = [string]([math]::Round(($TotalSize/$VolumeSize*100),2)) + "%"
         $Lbl_PercentOfVolumeText.Text = "Percent of $DriveLetter Volume"
     } else {
@@ -217,7 +218,7 @@ $Btn_Back = New-Object System.Windows.Forms.Button
 $Btn_Back.Text = "Back"
 $Btn_Back.Location = New-Object System.Drawing.Size(25,23)
 $Btn_Back.size = New-Object System.Drawing.Size(75,23)
-$Btn_Back.add_click({$Lbl_FolderPath1.Text = Split-Path $Lbl_FolderPath1.Text;Update_Ctr_ContainerControl1($Lbl_FolderPath1.Text)})
+$Btn_Back.add_click({if(($Lbl_FolderPath1.Text.SubString($Lbl_FolderPath1.Text.Length-2)) -ne ":\"){$Lbl_FolderPath1.Text = Split-Path $Lbl_FolderPath1.Text;Update_Ctr_ContainerControl1($Lbl_FolderPath1.Text)}})
  
 #container Control
 $Ctr_ContainerControl1 = New-Object System.Windows.Forms.ContainerControl
@@ -246,7 +247,8 @@ $Bar_Progress1.Width = 50
 $Bar_Progress1.Text = "Refreshing"
  
 #$Sts_Strip1.Controls.Add($Bar_Progress1)
- 
+
+#TODO: Make Hidden button do something
 #Show Hidden
 $Chk_Hidden = New-Object System.Windows.Forms.CheckBox
 $Chk_Hidden.Size = New-Object System.Drawing.Size(30,30)
@@ -259,6 +261,7 @@ $Lbl_HiddenText.Size = New-Object System.Drawing.Size(80,30)
 $Lbl_HiddenText.Location = New-Object System.Drawing.Size(350,33)
 $Lbl_HiddenText.Text = "Show Hidden"
  
+#TODO: Make System button do something
 #Show System
 $Chk_System = New-Object System.Windows.Forms.CheckBox
 $Chk_System.Size = New-Object System.Drawing.Size(30,30)
