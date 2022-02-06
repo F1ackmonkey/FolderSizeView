@@ -1,6 +1,13 @@
 ### This provides a visual representation of the filesystem where the largest folders show up with the largest font size.
 ### the purpose is to quickly identify where on the filesystem the storage is being used.
  
+class LogEntry {
+    [datetime] $EntryDate
+    [string] $Message
+}
+
+#Setup global locg collection var
+$Global:LogCollection = @() 
 
 #Browse folder button on_click action
 function Btn_OpenFolder {
@@ -31,6 +38,7 @@ Function Update_Ctr_ContainerControl1 {
             try {
                 $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction SilentlyContinue |Measure-Object -Property length -Sum -ErrorAction SilentlyContinue).Sum
             } catch [System.UnauthorizedAccessException] {
+                $LogCollection += [LogEntry]::new((get-date),"$_ Try Running as an administrator")
                 Write-Warning "$_ Try Running as an administrator"
                 $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction SilentlyContinue |Measure-Object -Property length -Sum -ErrorAction SilentlyContinue).Sum
             } catch {
@@ -51,6 +59,7 @@ Function Update_Ctr_ContainerControl1 {
             try {
                 $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction Stop |Measure-Object -Property length -Sum -ErrorAction Stop).Sum
             } catch [System.UnauthorizedAccessException] {
+                $LogCollection += [LogEntry]::new((get-date),"$_ Try Running as an administrator")
                 Write-Warning "$_ Try Running as an administrator"
                 $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction SilentlyContinue |Measure-Object -Property length -Sum -ErrorAction SilentlyContinue).Sum
             } catch {
@@ -71,6 +80,7 @@ Function Update_Ctr_ContainerControl1 {
         try {
             $TempObj | Add-Member -MemberType NoteProperty -Name Size -Value $((Get-ChildItem -File $FolderPath -ErrorAction Stop |Measure-Object -Property length -Sum -ErrorAction Stop).Sum)
         } catch [System.UnauthorizedAccessException] {
+            $LogCollection += [LogEntry]::new((get-date),"$_ Try Running as an administrator")
             Write-Warning "$_ Try Running as an administrator"
             $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction SilentlyContinue |Measure-Object -Property length -Sum -ErrorAction SilentlyContinue).Sum
         } catch {
@@ -84,6 +94,7 @@ Function Update_Ctr_ContainerControl1 {
         try {
             $TempObj | Add-Member -MemberType NoteProperty -Name Size -Value $((Get-ChildItem -File -Hidden $FolderPath -ErrorAction Stop |Measure-Object -Property length -Sum -ErrorAction Stop).Sum)
         } catch [System.UnauthorizedAccessException] {
+            $LogCollection += [LogEntry]::new((get-date),"$_ Try Running as an administrator")
             Write-Warning "$_ Try Running as an administrator"
             $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction SilentlyContinue |Measure-Object -Property length -Sum -ErrorAction SilentlyContinue).Sum
         } catch {
@@ -97,6 +108,7 @@ Function Update_Ctr_ContainerControl1 {
         try {
             $TempObj | Add-Member -MemberType NoteProperty -Name Size -Value $((Get-ChildItem -System -System $FolderPath -ErrorAction Stop |Measure-Object -Property length -Sum -ErrorAction Stop).Sum)
         } catch [System.UnauthorizedAccessException] {
+            $LogCollection += [LogEntry]::new((get-date),"$_ Try Running as an administrator")
             Write-Warning "$_ Try Running as an administrator"
             $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction SilentlyContinue |Measure-Object -Property length -Sum -ErrorAction SilentlyContinue).Sum
         } catch {
@@ -167,34 +179,79 @@ Add-Type -AssemblyName system.windows.forms
  
 #Create Form
 $Frm_Form1 = New-Object System.Windows.Forms.Form
-$Frm_Form1.Size = New-Object System.Drawing.Size(825,730)
+$Frm_Form1.Size = New-Object System.Drawing.Size(950,950)
 $Frm_Form1.Text = "Folder Size View"
  
 #Folder Path Label
 $Lbl_FolderPath1 = New-Object System.Windows.Forms.TextBox
+$CurrentControlYLocation = 28
+$Lbl_FolderPath1.Location = New-Object System.Drawing.point(10,$CurrentControlYLocation)
 $Lbl_FolderPath1.Size = New-Object System.Drawing.Size(720,23)
 $Lbl_FolderPath1.Text = "Test"
 $Lbl_FolderPath1.ReadOnly =$true
+
+#Back Button
+$Btn_Back = New-Object System.Windows.Forms.Button
+$Btn_Back.Text = "Back"
+$CurrentControlYLocation = $CurrentControlYLocation + 25
+$Btn_Back.Location = New-Object System.Drawing.point(150,$CurrentControlYLocation)
+$Btn_Back.size = New-Object System.Drawing.Size(75,23)
+$Btn_Back.add_click({if(($Lbl_FolderPath1.Text.SubString($Lbl_FolderPath1.Text.Length-2)) -ne ":\"){$Lbl_FolderPath1.Text = Split-Path $Lbl_FolderPath1.Text;Update_Ctr_ContainerControl1($Lbl_FolderPath1.Text)}})
  
+#folder Browse Button
+$Btn_OpenFolder = New-Object System.Windows.Forms.Button
+$Btn_OpenFolder.Text = "Open Folder"
+$Btn_OpenFolder.Location = New-Object System.Drawing.point(10,$CurrentControlYLocation)
+$Btn_OpenFolder.size = New-Object System.Drawing.Size(120,23)
+$Btn_OpenFolder.add_click({$Lbl_FolderPath1.Text = Btn_OpenFolder;Update_Ctr_ContainerControl1($Lbl_FolderPath1.Text)})
+
+#TODO: Make Hidden button do something
+#Show Hidden
+$Chk_Hidden = New-Object System.Windows.Forms.CheckBox
+$Chk_Hidden.Size = New-Object System.Drawing.Size(33,30)
+$Chk_Hidden.Location = New-Object System.Drawing.point(430,($CurrentControlYLocation-3))
+$Chk_Hidden.Checked = $true
+ 
+#Show Hidden Text
+$Lbl_HiddenText = New-Object System.Windows.Forms.Label
+$Lbl_HiddenText.Size = New-Object System.Drawing.Size(80,30)
+$Lbl_HiddenText.Location = New-Object System.Drawing.point(350,$CurrentControlYLocation)
+$Lbl_HiddenText.Text = "Show Hidden"
+ 
+#TODO: Make System button do something
+#Show System
+$Chk_System = New-Object System.Windows.Forms.CheckBox
+$Chk_System.Size = New-Object System.Drawing.Size(33,30)
+$Chk_System.Location = New-Object System.Drawing.point(540,($CurrentControlYLocation-3))
+$Chk_System.Checked = $true
+ 
+#Show System Text
+$Lbl_SystemText = New-Object System.Windows.Forms.Label
+$Lbl_SystemText.Size = New-Object System.Drawing.Size(80,30)
+$Lbl_SystemText.Location = New-Object System.Drawing.point(460,$CurrentControlYLocation)
+$Lbl_SystemText.Text = "Show System"
+
 #Current Dir Size Label text
 $Lbl_CurrentDirSizeText = New-Object System.Windows.Forms.Label
 $Lbl_CurrentDirSizeText.Size = New-Object System.Drawing.Size(425,30)
-$Lbl_CurrentDirSizeText.Location = New-Object System.Drawing.Size(0,53)
+$CurrentControlYLocation = $CurrentControlYLocation + 25
+$Lbl_CurrentDirSizeText.Location = New-Object System.Drawing.point(10,$CurrentControlYLocation)
 $NewFont = New-Object System.Drawing.Font($Lbl_CurrentDirSizeText.Font.FontFamily,20)
 $Lbl_CurrentDirSizeText.Text = "Current Folder and Subfolder Size"
 $Lbl_CurrentDirSizeText.Font = $NewFont
  
 #Current Dir Size Label
 $Lbl_CurrentDirSize = New-Object System.Windows.Forms.Label
-$Lbl_CurrentDirSize.Size = New-Object System.Drawing.Size(150,30)
-$Lbl_CurrentDirSize.Location = New-Object System.Drawing.Size(425,53)
+$Lbl_CurrentDirSize.Size = New-Object System.Drawing.Size(200,30)
+$Lbl_CurrentDirSize.Location = New-Object System.Drawing.point(480,$CurrentControlYLocation)
 $NewFont = New-Object System.Drawing.Font($Lbl_CurrentDirSize.Font.FontFamily,20)
 $Lbl_CurrentDirSize.Font = $NewFont
  
 #Current percent of volume text
 $Lbl_PercentOfVolumeText = New-Object System.Windows.Forms.Label
 $Lbl_PercentOfVolumeText.Size = New-Object System.Drawing.Size(425,30)
-$Lbl_PercentOfVolumeText.Location = New-Object System.Drawing.Size(0,83)
+$CurrentControlYLocation = $CurrentControlYLocation + 25
+$Lbl_PercentOfVolumeText.Location = New-Object System.Drawing.point(10,$CurrentControlYLocation)
 $NewFont = New-Object System.Drawing.Font($Lbl_CurrentDirSize.Font.FontFamily,20)
 $Lbl_PercentOfVolumeText.Text = "Percent Of Volume"
 $Lbl_PercentOfVolumeText.Font = $NewFont
@@ -202,28 +259,16 @@ $Lbl_PercentOfVolumeText.Font = $NewFont
 #Current percent of volume label
 $Lbl_PercentOfVolume = New-Object System.Windows.Forms.Label
 $Lbl_PercentOfVolume.Size = New-Object System.Drawing.Size(150,30)
-$Lbl_PercentOfVolume.Location = New-Object System.Drawing.Size(425,83)
+$Lbl_PercentOfVolume.Location = New-Object System.Drawing.Size(480,$CurrentControlYLocation)
 $NewFont = New-Object System.Drawing.Font($Lbl_CurrentDirSize.Font.FontFamily,20)
 $Lbl_PercentOfVolume.Font = $NewFont
  
-#folder Browse Button
-$Btn_OpenFolder = New-Object System.Windows.Forms.Button
-$Btn_OpenFolder.Text = "Open Folder"
-$Btn_OpenFolder.Location = New-Object System.Drawing.Size(120,23)
-$Btn_OpenFolder.size = New-Object System.Drawing.Size(120,23)
-$Btn_OpenFolder.add_click({$Lbl_FolderPath1.Text = Btn_OpenFolder;Update_Ctr_ContainerControl1($Lbl_FolderPath1.Text)})
- 
-#Back Button
-$Btn_Back = New-Object System.Windows.Forms.Button
-$Btn_Back.Text = "Back"
-$Btn_Back.Location = New-Object System.Drawing.Size(25,23)
-$Btn_Back.size = New-Object System.Drawing.Size(75,23)
-$Btn_Back.add_click({if(($Lbl_FolderPath1.Text.SubString($Lbl_FolderPath1.Text.Length-2)) -ne ":\"){$Lbl_FolderPath1.Text = Split-Path $Lbl_FolderPath1.Text;Update_Ctr_ContainerControl1($Lbl_FolderPath1.Text)}})
- 
+
 #container Control
 $Ctr_ContainerControl1 = New-Object System.Windows.Forms.ContainerControl
-$Ctr_ContainerControl1.size = New-Object System.Drawing.Size(700,700)
-$Ctr_ContainerControl1.Location = New-Object System.Drawing.Size(0,123)
+$Ctr_ContainerControl1.size = New-Object System.Drawing.Size(($Frm_Form1.Size.Width-100),($Frm_Form1.Size.Height-100))
+$CurrentControlYLocation = $CurrentControlYLocation + 40
+$Ctr_ContainerControl1.Location = New-Object System.Drawing.Size(10,$CurrentControlYLocation)
 $Ctr_ContainerControl1.AutoScroll = $true
 $Ctr_ContainerControl1.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 $Ctr_ContainerControl1.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
@@ -248,32 +293,46 @@ $Bar_Progress1.Text = "Refreshing"
  
 #$Sts_Strip1.Controls.Add($Bar_Progress1)
 
-#TODO: Make Hidden button do something
-#Show Hidden
-$Chk_Hidden = New-Object System.Windows.Forms.CheckBox
-$Chk_Hidden.Size = New-Object System.Drawing.Size(30,30)
-$Chk_Hidden.Location = New-Object System.Drawing.Size(425,25)
-$Chk_Hidden.Checked = $true
- 
-#Show Hidden Text
-$Lbl_HiddenText = New-Object System.Windows.Forms.Label
-$Lbl_HiddenText.Size = New-Object System.Drawing.Size(80,30)
-$Lbl_HiddenText.Location = New-Object System.Drawing.Size(350,33)
-$Lbl_HiddenText.Text = "Show Hidden"
- 
-#TODO: Make System button do something
-#Show System
-$Chk_System = New-Object System.Windows.Forms.CheckBox
-$Chk_System.Size = New-Object System.Drawing.Size(30,30)
-$Chk_System.Location = New-Object System.Drawing.Size(535,25)
-$Chk_System.Checked = $true
- 
-#Show System Text
-$Lbl_SystemText = New-Object System.Windows.Forms.Label
-$Lbl_SystemText.Size = New-Object System.Drawing.Size(80,30)
-$Lbl_SystemText.Location = New-Object System.Drawing.Size(460,33)
-$Lbl_SystemText.Text = "Show Hidden"
- 
+
+#Menu Strip
+$MS_Main = new-object System.Windows.Forms.MenuStrip
+$logToolStripMenuItem = new-object System.Windows.Forms.ToolStripMenuItem
+$ViewToolStripMenuItem = new-object System.Windows.Forms.ToolStripMenuItem
+
+#
+# MS_Main
+#
+$MS_Main.Items.AddRange(@(
+$LogToolStripMenuItem))
+$MS_Main.Location = new-object System.Drawing.Point(0, 0)
+$MS_Main.Name = "MS_Main"
+$MS_Main.Size = new-object System.Drawing.Size(354, 24)
+$MS_Main.TabIndex = 0
+$MS_Main.Text = "menuStrip1"
+#
+# LogToolStripMenuItem
+#
+$LogToolStripMenuItem.DropDownItems.AddRange(@(
+$ViewToolStripMenuItem))
+$LogToolStripMenuItem.Name = "LogToolStripMenuItem"
+$LogToolStripMenuItem.Size = new-object System.Drawing.Size(35, 20)
+$LogToolStripMenuItem.Text = "&Log"
+#
+# openToolStripMenuItem
+#
+$ViewToolStripMenuItem.Name = "ViewToolStripMenuItem"
+$ViewToolStripMenuItem.Size = new-object System.Drawing.Size(152, 22)
+$ViewToolStripMenuItem.Text = "&View"
+function OnClick_openToolStripMenuItem($Sender,$e){
+    [void][System.Windows.Forms.MessageBox]::Show("Event openToolStripMenuItem.Add_Click is not implemented.")
+}
+
+$ViewToolStripMenuItem.Add_Click( { OnClick_openToolStripMenuItem $ViewToolStripMenuItem $EventArgs} )
+
+$Frm_Form1.Add_FormClosing( { OnFormClosing_MenuForm $MenuForm $EventArgs} )
+$Frm_Form1.Add_Shown({$MenuForm.Activate()})
+
+
 #add controls to form
 $Frm_Form1.Controls.add($Lbl_FolderPath1)
 $Frm_Form1.Controls.add($Btn_OpenFolder)
@@ -288,6 +347,8 @@ $Frm_Form1.Controls.add($Chk_Hidden)
 $Frm_Form1.Controls.add($Chk_System)
 $Frm_Form1.Controls.add($Lbl_HiddenText)
 $Frm_Form1.Controls.add($Lbl_SystemText)
+$Frm_Form1.Controls.Add($MS_Main)
+$Frm_Form1.MainMenuStrip = $MS_Main
 $Sts_Strip1.BringToFront()
  
 #set starting path and refresh
