@@ -59,7 +59,7 @@ Function Update_Ctr_ContainerControl1 {
             try {
                 $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction Stop |Measure-Object -Property length -Sum -ErrorAction Stop).Sum
             } catch [System.UnauthorizedAccessException] {
-                $LogCollection += [LogEntry]::new((get-date),"$_ Try Running as an administrator")
+                $LogCollection += [LogEntry]::new((get-date),"$($_) Try Running as an administrator")
                 Write-Warning "$_ Try Running as an administrator"
                 $FolderSize = (Get-ChildItem $_.FullName -Recurse -ErrorAction SilentlyContinue |Measure-Object -Property length -Sum -ErrorAction SilentlyContinue).Sum
             } catch {
